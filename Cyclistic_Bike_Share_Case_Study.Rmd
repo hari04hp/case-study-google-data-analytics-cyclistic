@@ -1,0 +1,376 @@
+---
+title: "Cyclistic Bike Share"
+author: "Haripriya Rajendran"
+date: "2023-06-06"
+output:
+  pdf_document: default
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+# Case Study: How Does a Bike-Share Navigate Speedy Success?
+
+Cyclistic is a bike share company who plans to convert more customers
+being casual riders to membership holders. It is planning a marketing
+campaign for which a few of the questions are answered in this case
+study.
+
+I will be using all 6 phases of Data Analytics as taught in Google Data
+Analytics certificate course.
+
+## Phase 1 - Ask:
+
+Ask phase involves identifying the business task, asking SMART and
+effective questions, identifying the stakeholders and planning on
+problem solving.
+
+### Business task:
+
+Convert more customers being casual riders to membership holders in
+order to increase the profit.
+
+### Key stakeholders:
+
+The key stakeholders here are the Lily Moreno, the director of marketing
+and our manager and Cyclistic executive team,who will approve the
+marketing program.
+
+### Questions planned to be answered: (Business Task)
+
+-   How do the annual members and casual riders use Cyclistic bikes
+    differently?
+-   If they are different, what strategy we can propose for the
+    successful conversion?
+
+## Phase 2 - Prepare:
+
+Prepare phase involves finding where the data is stored, how it is
+organized, how it is reliable and whether it ROCCCs. We also have to see
+from which party the data is from and how the privacy and security is
+taken care of.
+
+-   Where is the data located?
+
+    Data is located under AWS S3 bucket
+
+-   Identify how it's organized.
+
+    Data is organized as monthwise for the last three years and prior to
+    them till 2013, they are all stored quarterwise. But we needed only
+    previous 12 months of data.
+
+-   Are there issues with bias or credibility in this data? Does your
+    data ROCCC?
+
+    We are not sure on who collected the data. It may have been
+    collected by Cyclistic and stored in AWS. In that case, the data is
+    credible.
+
+    -   R - Reliable ? Yes, the data is reliable assuming the company
+        itself uploaded them to AWS
+    -   O - Organized ? Yes, the data is organized yearly quarter or
+        month wise
+    -   C - Comprehensive ? Yes, the data has the required details to
+        answer the business question
+    -   C - Current ? Yes, the data is available till 2023
+    -   C - Cited ? There are no citations on the details on where the
+        data is collected.
+
+-   How are you addressing licensing, privacy, security, and
+    accessibility?
+
+    Since it is an open source data, it's easily accessible. We can
+    consider this as first party data since the company itself collected
+    their own customer's data. The data has been made available by
+    Motivate International Inc. under this
+    [license](https://www.divvybikes.com/data-license-agreement)
+
+### Datasource Used:
+
+Downloaded all the zipped files from this location
+[dataset](https://divvy-tripdata.s3.amazonaws.com/index.html)
+
+## Phase 3 - Process:
+
+Process phase involves cleaning, organizing, making the data readily
+accessible for analysis.
+
+### Choosing the tools.
+
+I have chosen RStudio for data cleaning and analysis.
+
+### Install the required Packages.
+
+Install and load the required packages
+
+```{r setup}
+knitr::opts_knit$set(root.dir = '/cloud/project/data')
+```
+
+```{r install-packages, results = "hide", message = FALSE}
+# Install required packages
+# tidyverse for data import and wrangling
+# lubridate for date functions
+# ggplot for visualization
+
+install.packages('tidyverse')
+install.packages('lubridate')
+install.packages('ggplot2')
+
+```
+
+```{r load packages, results = "hide", message = FALSE}
+
+
+library(tidyverse)  #helps wrangle data
+library(lubridate)  #helps wrangle date attributes
+library(ggplot2)  #helps visualize data
+#getwd() #displays your working directory
+```
+
+### Transform the data and document the process.
+
+In the below code chunks, we will be checking the data for errors, clean
+the data and document them. We will be checking the data column names
+and whether they need any transformation before merging. We will also be
+converting all csv to a single data frame.
+
+Since importing all 12 month files leads to crash, we are importing only
+last 6 months data.
+
+```{r importing all data frames, message=FALSE}
+#Generating all filenames automatically
+all_months <- seq(as.Date("2022-11-01"), as.Date("2023-04-01"), by="month")
+all_months <- format(all_months, "%Y%m")
+
+for (each_month in all_months){
+  assign(sprintf('data_%s', each_month), read_csv(sprintf('%s-divvy-tripdata.csv',each_month)))
+}
+```
+
+#### Check if data fetched properly
+
+```{r Check if data fetched properly}
+
+head(data_202211)
+
+#checking the earliest set and the latest set has same set of columns
+all(colnames(data_202211) == colnames(data_202304)) #should return TRUE
+```
+
+#### Combine all data together
+
+```{r combine all data}
+all_df <- bind_rows( data_202211, data_202212, data_202301, data_202302, data_202303, data_202304)
+head(all_df)
+
+```
+
+#### Removing the other data frames from memory, since we have less RAM
+
+```{r remove dataframe from memory}
+rm("data_202211","data_202212", "data_202301", "data_202302", "data_202303", "data_202304")
+
+```
+
+#### Checking all the columns and their values
+
+```{r summary of dataframe}
+str(all_df)
+```
+
+#### Creating additional columns
+
+```{r ride-length}
+all_df$ride_length <- difftime(all_df$ended_at, all_df$started_at)
+#The above line added "secs" to the time, e.g 572 secs, so to remove that properly we did the below
+
+is.factor(all_df$ride_length)
+is.numeric(all_df$ride_length)
+
+all_df$ride_length <- as.numeric(as.character(all_df$ride_length))
+is.numeric(all_df$ride_length)
+```
+
+#### Create columns for year, month, date
+
+```{r create columns for year, month, date}
+
+#create columns for year, month, date
+all_df$year  <- format(as.Date(all_df$started_at), "%Y")
+all_df$month  <- format(as.Date(all_df$started_at), "%m")
+all_df$day  <- format(as.Date(all_df$started_at), "%d")
+all_df$day_of_week  <- format(as.Date(all_df$started_at), "%A")
+
+#all_df %>% select(year, month, day, day_of_week)
+```
+
+```{r unique-member_casual}
+unique(all_df$member_casual)
+```
+
+```{r unique-rideable_type}
+unique(all_df$rideable_type)
+```
+
+Some ride lengths are zero which are irrelevant
+
+```{r remove ride-length 0}
+#dim(all_df[(all_df$ride_length < 0),])
+
+all_df <- all_df[(all_df$ride_length >= 0),]
+```
+
+## Phase 4 : Analyze
+
+We have cleaned the data and created required columns. Now we will group
+by and analyze.
+
+Let's have day_of_week to be in order
+
+```{r order day of week}
+all_df$day_of_week <- ordered(all_df$day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+```
+
+Check ride length by day of the week
+
+```{r Check ride length by day of the week, warning=FALSE}
+all_df %>%
+  group_by(day_of_week) %>% 
+  summarise(number_of_rides = n(),mean_ride_length = mean(ride_length), max_ride_length = max(ride_length), min_ride_length = min(ride_length))
+```
+
+#### Analyze weekly data
+
+Check ride length by day of the week and by member_casual
+
+```{r message=FALSE, warning=FALSE}
+all_df %>%
+  group_by(day_of_week, member_casual) %>% 
+  summarise(number_of_rides = n(),mean_ride_length = mean(ride_length), max_ride_length = max(ride_length), min_ride_length = min(ride_length))
+```
+
+Let's plot the number of rides by rider type and the day of the week and
+see if we get any insights.
+
+```{r message=FALSE, warning=FALSE}
+all_df %>%
+  group_by(day_of_week, member_casual) %>% 
+  summarise(number_of_rides = n(),mean_ride_length = mean(ride_length), max_ride_length = max(ride_length), min_ride_length = min(ride_length)) %>% 
+  ggplot(mapping = aes(x = day_of_week, y= number_of_rides, fill = member_casual)) + geom_col(position = "dodge") +
+ labs(title = "Total no. of Rides vs Day of the Week")
+
+```
+
+We can see clearly that whatever day of the week is, casual riders are
+booking less number of rides than the member riders
+
+Let's plot the average ride length by rider type and the day of the week
+
+```{r message=FALSE, warning=FALSE}
+all_df %>%
+  group_by(day_of_week, member_casual) %>% 
+  summarise(number_of_rides = n(),mean_ride_length = mean(ride_length), max_ride_length = max(ride_length), min_ride_length = min(ride_length)) %>% 
+  ggplot(mapping = aes(x = day_of_week, y= mean_ride_length, fill = member_casual)) + geom_col(position = "dodge") + 
+   labs(title = "Average length of Rides vs Day of the Week")
+```
+
+But when we check the average ride length, casual riders are riding more
+time than members.
+
+It seems even though members are taking many number of rides, they are
+driving for a consistent amount of time and the ride length is
+significantly less than the casual riders. We can see clearly that
+during weekdays, the member riders have almost the same ride length
+indicating that they are using it for daily routine like riding to work
+or school.
+
+#### Analyze seasonal data
+
+Ideally, if one year data is taken, we could analyse them seasonally.
+But we have only 6 months data, so we will see by months
+
+```{r message=FALSE, warning=FALSE}
+all_df %>%
+  group_by(month, member_casual) %>% 
+  summarise(number_of_rides = n(),mean_ride_length = mean(ride_length), max_ride_length = max(ride_length), min_ride_length = min(ride_length)) %>% 
+  ggplot(mapping = aes(x = month, y= mean_ride_length, fill = member_casual)) + geom_col(position = "dodge") +
+   labs(title = "Average length of Rides vs Month")
+```
+
+Grouping 3 months each to check if there are any changes in pattern.
+
+```{r message=FALSE, warning=FALSE}
+all_df %>%
+  mutate(month_group = ifelse(month %in% c(11,12,1), 'A', 'B')) %>% 
+  group_by(month_group, member_casual) %>% 
+  summarise(number_of_rides = n(),mean_ride_length = mean(ride_length), max_ride_length = max(ride_length), min_ride_length = min(ride_length)) %>% 
+  ggplot(mapping = aes(x = month_group, y= mean_ride_length, fill = member_casual)) + geom_col(position = "dodge") +
+   labs(title = "Average length of Rides vs Month group")
+```
+
+Let's see if some type of bike is preferred by casual or member riders
+
+```{r message=FALSE, warning=FALSE}
+all_df %>%
+  group_by(rideable_type, member_casual) %>% 
+  summarise(number_of_rides = n(),mean_ride_length = mean(ride_length), max_ride_length = max(ride_length), min_ride_length = min(ride_length)) %>% 
+  ggplot(mapping = aes(x = rideable_type, y= mean_ride_length, fill = member_casual)) + geom_col(position = "dodge") + 
+   labs(title = "Average length of Rides vs Rideable type")
+```
+
+```{r message=FALSE}
+all_df %>%
+  group_by(rideable_type, member_casual) %>% 
+  summarise(number_of_rides = n(),mean_ride_length = mean(ride_length), max_ride_length = max(ride_length), min_ride_length = min(ride_length)) %>% 
+  ggplot(mapping = aes(x = rideable_type, y= number_of_rides, fill = member_casual)) + geom_col(position = "dodge") + 
+   labs(title = "Total no. of Rides vs Rideable Type")
+```
+
+We can see docked_bike is mostly used by casual riders and they are
+taking it for long rides. We can use this information and plan on giving
+more offers in docked_bike on successful conversion of casual riders to
+member riders.
+
+#### Export Summary data frame to a csv
+
+```{r message=FALSE, warning=FALSE}
+write.csv(all_df %>%
+  group_by(day_of_week, member_casual) %>% 
+  summarise(number_of_rides = n(),mean_ride_length = mean(ride_length), max_ride_length = max(ride_length), min_ride_length = min(ride_length)), "grouped_df.csv", row.names = FALSE) 
+```
+
+## Phase 5: Share
+
+#### Determine the best way to share the findings.
+
+We have created few graphs during analysis for finding insights, for
+showing them a Powerpoint presentation would be a proper approach.
+
+#### Create effective data visualizations.
+
+The earlier graphs we created are properly labelled and coloured so that
+it's easier to understand
+
+#### Ensuring the work is accessible
+
+Since this is an R markdown, the html or pdf is shareable and accessible
+by everyone.
+
+## Phase 6 : Act
+
+Below are the conclusions from our Analysis.
+
+-   **How are the riders different ?** It is clear that casual riders
+    ride more than the member riders at any time of the year.
+-   **Weekend Pattern:** On Weekends, casual riders ride longer. We can
+    advertise to offer them weekend discounts if they convert to a
+    member.
+-   **Docked Bike usage discount:** Docked bike is being preferred the
+    most by casual riders for long ride even if their number of rides is
+    less. So, we can advertise to those casual riders who convert to
+    memberships to give a discount when docked bike is used for long.
+-   **Survey:** Conducting a survey with the above insights to the
+    casual riders might give some more additional data which we can use
+    to expand our findings.
