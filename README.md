@@ -17,3 +17,7 @@ The Case Study is also published it in [RPubs](https://rpubs.com/haripriya_rhp/c
 
 ### DataSet
 Dataset is under this [location](https://divvy-tripdata.s3.amazonaws.com/index.html) and please create a folder named 'data' and under that unzip the files. The data has been made available byMotivate International Inc. under this [license](https://www.divvybikes.com/data-license-agreement)
+
+### Output
+The summary dataframe produced by this case study is also present under data/
+The Cyclistic_Bike_Share_Case_Study.html and the Cyclistic_Bike_Share_Case_Study.pdf has all the analysis and the visualizations.
